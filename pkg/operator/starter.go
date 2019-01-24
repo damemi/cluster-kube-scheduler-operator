@@ -2,6 +2,7 @@ package operator
 
 import (
 	"fmt"
+	"github.com/openshift/library-go/pkg/operator/staticpod/controller/revision"
 	"os"
 	"time"
 
@@ -60,7 +61,6 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		dynamicClient,
 		v311_00_assets.MustAsset("v3.11.0/kube-scheduler/operator-config.yaml"),
 		schema.GroupVersionResource{Group: v1alpha1.GroupName, Version: "v1alpha1", Resource: "kubescheduleroperatorconfigs"},
-		v1helpers.GetImageEnv,
 	)
 
 	configObserver := configobservercontroller.NewConfigObserver(
@@ -82,13 +82,19 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 	staticPodControllers := staticpod.NewControllers(
 		targetNamespaceName,
 		"openshift-kube-scheduler",
+		"kube-scheduler-pod",
 		[]string{"cluster-kube-scheduler-operator", "installer"},
+		[]string{"cluster-kube-scheduler-operator", "prune"},
 		deploymentConfigMaps,
 		deploymentSecrets,
 		staticPodOperatorClient,
+		v1helpers.CachedConfigMapGetter(kubeClient, kubeInformersForNamespaces),
+		v1helpers.CachedSecretGetter(kubeClient, kubeInformersForNamespaces),
+		kubeClient.CoreV1(),
 		kubeClient,
-		kubeInformersNamespace,
-		kubeInformersClusterScoped,
+		dynamicClient,
+		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace),
+		kubeInformersForNamespaces.InformersFor(""),
 		ctx.EventRecorder,
 	)
 
@@ -114,12 +120,12 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 
 // deploymentConfigMaps is a list of configmaps that are directly copied for the current values.  A different actor/controller modifies these.
 // the first element should be the configmap that contains the static pod manifest
-var deploymentConfigMaps = []string{
-	"kube-scheduler-pod",
-	"config",
+var deploymentConfigMaps = []revision.RevisionResource{
+	{Name: "kube-scheduler-pod"},
+	{Name: "config"},
 }
 
 // deploymentSecrets is a list of secrets that are directly copied for the current values.  A different actor/controller modifies these.
-var deploymentSecrets = []string{
-	"scheduler-kubeconfig",
+var deploymentSecrets = []revision.RevisionResource{
+	{Name: "scheduler-kubeconfig"},
 }
