@@ -1,5 +1,5 @@
 hash: 7d754c13a9f21ca45a1360b83682b935db91dca52d2715b204fa36edc8811457
-updated: 2018-12-04T12:17:51.107994194-05:00
+updated: 2019-01-24T14:29:11.976616344-05:00
 imports:
 - name: bitbucket.org/ww/goautoneg
   version: 75cd24fc2f2c2a2088577d12123ddee5f54e0675
@@ -95,7 +95,7 @@ imports:
   - daemon
   - journal
 - name: github.com/davecgh/go-spew
-  version: 782f4967f2dc4564575ca782fe2d04090b5faca8
+  version: d8f796af33cc11cb798c1aaeb27a4ebc5099927d
   subpackages:
   - spew
 - name: github.com/elazarl/go-bindata-assetfs
@@ -111,7 +111,7 @@ imports:
 - name: github.com/getsentry/raven-go
   version: 32a13797442ccb601b11761d74232773c1402d14
 - name: github.com/ghodss/yaml
-  version: 73d445a93680fa1a78ae23a5839bad48f32ba1ee
+  version: c7ce16629ff4cd059ed96ed06419dd3856fd3577
 - name: github.com/go-openapi/jsonpointer
   version: 46af16f9f7b149af66e5d1bd010e3574dc06de98
 - name: github.com/go-openapi/jsonreference
@@ -126,7 +126,7 @@ imports:
   - proto
   - sortkeys
 - name: github.com/golang/glog
-  version: 44145f04b68cf362d9c4df2182967c2275eaefed
+  version: 23def4e6c14b4da8ac2ed8007337bc5eb5007998
 - name: github.com/golang/groupcache
   version: 02826c3e79038b59d737d3b1c0a1d937f71a4433
   subpackages:
@@ -185,7 +185,7 @@ imports:
 - name: github.com/NYTimes/gziphandler
   version: 56545f4a5d46df9a6648819d1664c3a03a13ffdb
 - name: github.com/openshift/api
-  version: 83b2fe56301417028bd52e56edd75768e2ea051c
+  version: 2469ee9dd95b7a252c7bcdcd68da9359cf9a4823
   subpackages:
   - apps
   - apps/v1
@@ -231,12 +231,13 @@ imports:
   - webconsole
   - webconsole/v1
 - name: github.com/openshift/client-go
-  version: 960f72aa32a8e9b4dd769b90ff1cb5bd4c898eec
+  version: f9132806c9914790e15f10d8c5d1e7a03408d7b2
   subpackages:
+  - config/clientset/versioned
   - config/clientset/versioned/scheme
   - config/clientset/versioned/typed/config/v1
 - name: github.com/openshift/library-go
-  version: d065f800f83264b80d67c8783756d2cb3149da61
+  version: 22c06b1b6dd66dc827b452b77b4cc48cd7820e91
   subpackages:
   - pkg/assets
   - pkg/config/client
@@ -255,16 +256,20 @@ imports:
   - pkg/operator/resource/resourceapply
   - pkg/operator/resource/resourcemerge
   - pkg/operator/resource/resourceread
+  - pkg/operator/resourcesynccontroller
   - pkg/operator/staticpod
   - pkg/operator/staticpod/controller/backingresource
   - pkg/operator/staticpod/controller/backingresource/bindata
-  - pkg/operator/staticpod/controller/common
   - pkg/operator/staticpod/controller/installer
+  - pkg/operator/staticpod/controller/installer/bindata
+  - pkg/operator/staticpod/controller/monitoring
+  - pkg/operator/staticpod/controller/monitoring/bindata
   - pkg/operator/staticpod/controller/node
+  - pkg/operator/staticpod/controller/prune
+  - pkg/operator/staticpod/controller/prune/bindata
   - pkg/operator/staticpod/controller/revision
   - pkg/operator/staticpod/installerpod
   - pkg/operator/status
-  - pkg/operator/v1alpha1helpers
   - pkg/operator/v1helpers
   - pkg/serviceability
 - name: github.com/pborman/uuid
@@ -274,7 +279,7 @@ imports:
 - name: github.com/pkg/errors
   version: 645ef00459ed84a119197bfb8d8205042c6df63d
 - name: github.com/pkg/profile
-  version: 057bc52a47ec3c79498dda63f4a6f8298725e976
+  version: 22592cc4bae3572d59be8852c6980023e4c9dec5
 - name: github.com/prometheus/client_golang
   version: e7e903064f5e9eb5da98208bae10b475d4db0f8c
   subpackages:
