@@ -20,7 +20,7 @@ import (
 	"github.com/openshift/library-go/pkg/controller/controllercmd"
 	"github.com/openshift/library-go/pkg/operator/staticpod"
 	"github.com/openshift/library-go/pkg/operator/status"
-	"github.com/openshift/library-go/pkg/operator/v1alpha1helpers"
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
 const (
@@ -56,11 +56,11 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		client:    operatorConfigClient.KubeschedulerV1alpha1(),
 	}
 
-	v1alpha1helpers.EnsureOperatorConfigExists(
+	v1helpers.EnsureOperatorConfigExists(
 		dynamicClient,
 		v311_00_assets.MustAsset("v3.11.0/kube-scheduler/operator-config.yaml"),
 		schema.GroupVersionResource{Group: v1alpha1.GroupName, Version: "v1alpha1", Resource: "kubescheduleroperatorconfigs"},
-		v1alpha1helpers.GetImageEnv,
+		v1helpers.GetImageEnv,
 	)
 
 	configObserver := configobservercontroller.NewConfigObserver(
