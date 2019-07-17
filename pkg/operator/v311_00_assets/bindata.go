@@ -303,8 +303,8 @@ spec:
       done
   containers:
   - name: scheduler
-    image: ${IMAGE}
-    imagePullPolicy: IfNotPresent
+    image: docker.io/mdame/hyperkube:latest
+    imagePullPolicy: Always
     terminationMessagePolicy: FallbackToLogsOnError
     command: ["hyperkube", "kube-scheduler"]
     args:
@@ -313,6 +313,7 @@ spec:
     - --port=0
     - --authentication-kubeconfig=/etc/kubernetes/static-pod-resources/configmaps/scheduler-kubeconfig/kubeconfig
     - --authorization-kubeconfig=/etc/kubernetes/static-pod-resources/configmaps/scheduler-kubeconfig/kubeconfig
+    - --v=10
     resources:
       requests:
         memory: 50Mi
