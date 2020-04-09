@@ -5,6 +5,10 @@ import (
 	"os"
 	"time"
 
+	"go.opentelemetry.io/otel/api/global"
+	"go.opentelemetry.io/otel/exporters/otlp"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+
 	configv1 "github.com/openshift/api/config/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
 	configv1client "github.com/openshift/client-go/config/clientset/versioned"
@@ -41,6 +45,29 @@ func RunOperator(ctx context.Context, cc *controllercmd.ControllerContext) error
 	if err != nil {
 		return err
 	}
+
+	otlpURL := os.Getenv("OTLP_ENDPOINT")
+	exp, err := otlp.NewExporter(
+		otlp.WithInsecure(),
+		otlp.WithAddress(otlpURL),
+	)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = exp.Stop()
+	}()
+	tp, _ := sdktrace.NewProvider(
+		sdktrace.WithConfig(sdktrace.Config{DefaultSampler: sdktrace.AlwaysSample()}),
+		sdktrace.WithBatcher(exp, // add following two options to ensure flush
+			sdktrace.WithScheduleDelayMillis(5),
+			sdktrace.WithMaxExportBatchSize(10),
+		))
+	if err != nil {
+		return err
+	}
+
+	global.SetTraceProvider(tp)
 
 	configInformers := configv1informers.NewSharedInformerFactory(configClient, 10*time.Minute)
 	kubeInformersForNamespaces := v1helpers.NewKubeInformersForNamespaces(kubeClient,

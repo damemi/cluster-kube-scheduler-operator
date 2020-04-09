@@ -7,6 +7,8 @@ import (
 
 	"k8s.io/klog"
 
+	"go.opentelemetry.io/otel/api/global"
+
 	operatorv1 "github.com/openshift/api/operator/v1"
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
 	configlistersv1 "github.com/openshift/client-go/config/listers/config/v1"
@@ -35,7 +37,7 @@ type TargetConfigReconciler struct {
 	featureGateLister     configlistersv1.FeatureGateLister
 	featureGateCacheSync  cache.InformerSynced
 	// queue only ever has one item, but it has nice error handling backoff/retry semantics
-	queue workqueue.RateLimitingInterface
+	queue  workqueue.RateLimitingInterface
 }
 
 func NewTargetConfigReconciler(
@@ -79,6 +81,10 @@ func NewTargetConfigReconciler(
 }
 
 func (c TargetConfigReconciler) sync() error {
+	ctx, span := global.TraceProvider().Tracer("target-config-reconciler").Start(context.Background(), "sync")
+	defer span.End()
+	span.AddEvent(ctx, "syncing target config")
+
 	operatorSpec, _, _, err := c.operatorClient.GetStaticPodOperatorState()
 	if err != nil {
 		return err
@@ -96,7 +102,7 @@ func (c TargetConfigReconciler) sync() error {
 		c.eventRecorder.Warningf("ManagementStateUnknown", "Unrecognized operator management state %q", operatorSpec.ManagementState)
 		return nil
 	}
-	requeue, err := createTargetConfigReconciler_v311_00_to_latest(c, c.eventRecorder, operatorSpec)
+	requeue, err := createTargetConfigReconciler_v311_00_to_latest(ctx, c, c.eventRecorder, operatorSpec)
 	if err != nil {
 		return err
 	}
