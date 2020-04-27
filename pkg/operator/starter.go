@@ -5,10 +5,6 @@ import (
 	"os"
 	"time"
 
-	"go.opentelemetry.io/otel/api/global"
-	"go.opentelemetry.io/otel/exporters/otlp"
-	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-
 	configv1 "github.com/openshift/api/config/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
 	configv1client "github.com/openshift/client-go/config/clientset/versioned"
@@ -26,6 +22,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/revision"
 	"github.com/openshift/library-go/pkg/operator/staticresourcecontroller"
 	"github.com/openshift/library-go/pkg/operator/status"
+	"github.com/openshift/library-go/pkg/operator/trace"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -37,40 +34,30 @@ const (
 )
 
 func RunOperator(ctx context.Context, cc *controllercmd.ControllerContext) error {
-	kubeClient, err := kubernetes.NewForConfig(cc.ProtoKubeConfig)
-	if err != nil {
-		return err
-	}
-	configClient, err := configv1client.NewForConfig(cc.KubeConfig)
-	if err != nil {
-		return err
-	}
-
-	otlpURL := os.Getenv("OTLP_ENDPOINT")
-	exp, err := otlp.NewExporter(
-		otlp.WithInsecure(),
-		otlp.WithAddress(otlpURL),
-	)
+	exp, tp, err := trace.NewOTLPExporterAndProvider(os.Getenv("OTLP_ENDPOINT"))
 	if err != nil {
 		return err
 	}
 	defer func() {
 		_ = exp.Stop()
 	}()
-	tp, _ := sdktrace.NewProvider(
-		sdktrace.WithConfig(sdktrace.Config{DefaultSampler: sdktrace.AlwaysSample()}),
-		sdktrace.WithBatcher(exp, // add following two options to ensure flush
-			sdktrace.WithScheduleDelayMillis(5),
-			sdktrace.WithMaxExportBatchSize(10),
-		))
+	ctx, span := tp.Tracer("starter").Start(ctx, "RunOperator")
+	defer span.End()
+
+	span.AddEvent(ctx, "initializing kubeClient")
+	kubeClient, err := kubernetes.NewForConfig(cc.ProtoKubeConfig)
+	if err != nil {
+		return err
+	}
+	span.AddEvent(ctx, "initializing configClient")
+	configClient, err := configv1client.NewForConfig(cc.KubeConfig)
 	if err != nil {
 		return err
 	}
 
-	global.SetTraceProvider(tp)
 
 	configInformers := configv1informers.NewSharedInformerFactory(configClient, 10*time.Minute)
-	kubeInformersForNamespaces := v1helpers.NewKubeInformersForNamespaces(kubeClient,
+	ctx, kubeInformersForNamespaces := v1helpers.NewKubeInformersForNamespaces(ctx, kubeClient,
 		"",
 		operatorclient.GlobalUserSpecifiedConfigNamespace,
 		operatorclient.GlobalMachineSpecifiedConfigNamespace,
@@ -78,12 +65,13 @@ func RunOperator(ctx context.Context, cc *controllercmd.ControllerContext) error
 		operatorclient.TargetNamespace,
 		"kube-system",
 	)
-	operatorClient, dynamicInformers, err := genericoperatorclient.NewStaticPodOperatorClient(cc.KubeConfig, operatorv1.GroupVersion.WithResource("kubeschedulers"))
+	ctx, operatorClient, dynamicInformers, err := genericoperatorclient.NewStaticPodOperatorClient(ctx, cc.KubeConfig, operatorv1.GroupVersion.WithResource("kubeschedulers"))
 	if err != nil {
 		return err
 	}
 
-	resourceSyncController, err := resourcesynccontroller.NewResourceSyncController(
+	ctx, resourceSyncController, err := resourcesynccontroller.NewResourceSyncController(
+		ctx,
 		operatorClient,
 		kubeInformersForNamespaces,
 		configInformers,

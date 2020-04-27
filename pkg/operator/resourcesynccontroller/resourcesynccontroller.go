@@ -1,6 +1,7 @@
 package resourcesynccontroller
 
 import (
+	"context"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
 
@@ -12,13 +13,15 @@ import (
 )
 
 func NewResourceSyncController(
+	ctx context.Context,
 	operatorConfigClient v1helpers.OperatorClient,
 	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
 	configInformer configinformers.SharedInformerFactory,
 	kubeClient kubernetes.Interface,
-	eventRecorder events.Recorder) (*resourcesynccontroller.ResourceSyncController, error) {
+	eventRecorder events.Recorder) (context.Context, *resourcesynccontroller.ResourceSyncController, error) {
 
-	resourceSyncController := resourcesynccontroller.NewResourceSyncController(
+	ctx, resourceSyncController := resourcesynccontroller.NewResourceSyncController(
+		ctx,
 		operatorConfigClient,
 		kubeInformersForNamespaces,
 		v1helpers.CachedSecretGetter(kubeClient.CoreV1(), kubeInformersForNamespaces),
@@ -43,5 +46,5 @@ func NewResourceSyncController(
 	); err != nil {
 		return nil, err
 	}
-	return resourceSyncController, nil
+	return ctx, resourceSyncController, nil
 }
