@@ -23,6 +23,8 @@ import (
 	"github.com/openshift/library-go/pkg/operator/management"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
+
+	"github.com/openshift/library-go/pkg/operator/trace"
 )
 
 // ResourceSyncController is a controller that will copy source configmaps and secrets to their destinations.
@@ -53,12 +55,16 @@ var _ factory.Controller = &ResourceSyncController{}
 
 // NewResourceSyncController creates ResourceSyncController.
 func NewResourceSyncController(
+	ctx context.Context,
 	operatorConfigClient v1helpers.OperatorClient,
 	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
 	secretsGetter corev1client.SecretsGetter,
 	configMapsGetter corev1client.ConfigMapsGetter,
 	eventRecorder events.Recorder,
-) *ResourceSyncController {
+) (context.Context, *ResourceSyncController) {
+
+	ctx, span := trace.TraceProvider().Tracer("library-go/resource-sync-controller").Start(ctx, "NewResourceSyncController")
+	defer span.End()
 	c := &ResourceSyncController{
 		name:                 "ResourceSyncController",
 		operatorConfigClient: operatorConfigClient,
@@ -88,7 +94,7 @@ func NewResourceSyncController(
 	f := factory.New().WithSync(c.Sync).WithSyncContext(c.syncCtx).WithInformers(informers...).ResyncEvery(time.Second).ToController(c.name, eventRecorder.WithComponentSuffix("resource-sync-controller"))
 	c.runFn = f.Run
 
-	return c
+	return ctx, c
 }
 
 func (c *ResourceSyncController) Run(ctx context.Context, workers int) {
@@ -134,6 +140,9 @@ func (c *ResourceSyncController) SyncSecret(destination, source ResourceLocation
 }
 
 func (c *ResourceSyncController) Sync(ctx context.Context, syncCtx factory.SyncContext) error {
+	ctx, span := trace.TraceProvider().Tracer("library-go/resourcesync-controller").Start(ctx, "sync")
+	defer span.End()
+
 	operatorSpec, _, _, err := c.operatorConfigClient.GetOperatorState()
 	if err != nil {
 		return err
