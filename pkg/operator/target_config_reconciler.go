@@ -7,8 +7,6 @@ import (
 
 	"k8s.io/klog"
 
-	"go.opentelemetry.io/otel/api/global"
-
 	operatorv1 "github.com/openshift/api/operator/v1"
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
 	configlistersv1 "github.com/openshift/client-go/config/listers/config/v1"
@@ -24,6 +22,8 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
+
+	"github.com/openshift/library-go/pkg/operator/trace"
 )
 
 type TargetConfigReconciler struct {
@@ -50,7 +50,9 @@ func NewTargetConfigReconciler(
 	operatorClient v1helpers.StaticPodOperatorClient,
 	kubeClient kubernetes.Interface,
 	eventRecorder events.Recorder,
-) *TargetConfigReconciler {
+) (context.Context, *TargetConfigReconciler) {
+	ctx, span := trace.TraceProvider().Tracer("target-config-reconciler").Start(ctx, "NewTargetConfigReconciler")
+	defer span.End()
 	c := &TargetConfigReconciler{
 		ctx:                   ctx,
 		targetImagePullSpec:   targetImagePullSpec,
@@ -77,11 +79,11 @@ func NewTargetConfigReconciler(
 	// we only watch some namespaces
 	namespacedKubeInformers.Core().V1().Namespaces().Informer().AddEventHandler(c.namespaceEventHandler())
 
-	return c
+	return ctx, c
 }
 
 func (c TargetConfigReconciler) sync() error {
-	ctx, span := global.TraceProvider().Tracer("target-config-reconciler").Start(context.Background(), "sync")
+	ctx, span := trace.TraceProvider().Tracer("target-config-reconciler").Start(context.Background(), "sync")
 	defer span.End()
 	span.AddEvent(ctx, "syncing target config")
 
@@ -102,7 +104,7 @@ func (c TargetConfigReconciler) sync() error {
 		c.eventRecorder.Warningf("ManagementStateUnknown", "Unrecognized operator management state %q", operatorSpec.ManagementState)
 		return nil
 	}
-	requeue, err := createTargetConfigReconciler_v311_00_to_latest(ctx, c, c.eventRecorder, operatorSpec)
+	ctx, requeue, err := createTargetConfigReconciler_v311_00_to_latest(ctx, c, c.eventRecorder, operatorSpec)
 	if err != nil {
 		return err
 	}

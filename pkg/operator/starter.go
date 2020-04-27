@@ -81,7 +81,8 @@ func RunOperator(ctx context.Context, cc *controllercmd.ControllerContext) error
 	if err != nil {
 		return err
 	}
-	configObserver := configobservercontroller.NewConfigObserver(
+	ctx, configObserver := configobservercontroller.NewConfigObserver(
+		ctx,
 		operatorClient,
 		kubeInformersForNamespaces,
 		configInformers,
@@ -89,7 +90,8 @@ func RunOperator(ctx context.Context, cc *controllercmd.ControllerContext) error
 		cc.EventRecorder,
 	)
 
-	staticResourceController := staticresourcecontroller.NewStaticResourceController(
+	ctx, resourceController := staticresourcecontroller.NewStaticResourceController(
+		ctx,
 		"KubeControllerManagerStaticResources",
 		v410_00_assets.Asset,
 		[]string{
@@ -109,9 +111,10 @@ func RunOperator(ctx context.Context, cc *controllercmd.ControllerContext) error
 		(&resourceapply.ClientHolder{}).WithKubernetes(kubeClient),
 		operatorClient,
 		cc.EventRecorder,
-	).AddKubeInformers(kubeInformersForNamespaces)
+	)
+	staticResourceController := resourceController.AddKubeInformers(kubeInformersForNamespaces)
 
-	targetConfigReconciler := NewTargetConfigReconciler(
+	ctx, targetConfigReconciler := NewTargetConfigReconciler(
 		ctx,
 		os.Getenv("IMAGE"),
 		os.Getenv("OPERATOR_IMAGE"),
@@ -135,19 +138,20 @@ func RunOperator(ctx context.Context, cc *controllercmd.ControllerContext) error
 	}
 	versionRecorder.SetVersion("raw-internal", status.VersionForOperatorFromEnv())
 
-	staticPodControllers, err := staticpod.NewBuilder(operatorClient, kubeClient, kubeInformersForNamespaces).
+	ctx, staticPodControllers, err := staticpod.NewBuilder(operatorClient, kubeClient, kubeInformersForNamespaces).
 		WithEvents(cc.EventRecorder).
 		WithInstaller([]string{"cluster-kube-scheduler-operator", "installer"}).
 		WithPruning([]string{"cluster-kube-scheduler-operator", "prune"}, "kube-scheduler-pod").
 		WithResources(operatorclient.TargetNamespace, "openshift-kube-scheduler", deploymentConfigMaps, deploymentSecrets).
 		WithCerts("kube-scheduler-certs", CertConfigMaps, CertSecrets).
 		WithVersioning(operatorclient.OperatorNamespace, "kube-scheduler", versionRecorder).
-		ToControllers()
+		ToControllers(ctx)
 	if err != nil {
 		return err
 	}
 
-	clusterOperatorStatus := status.NewClusterOperatorStatusController(
+	ctx, clusterOperatorStatus := status.NewClusterOperatorStatusController(
+		ctx,
 		"kube-scheduler",
 		[]configv1.ObjectReference{
 			{Group: "operator.openshift.io", Resource: "kubeschedulers", Name: "cluster"},
@@ -162,7 +166,8 @@ func RunOperator(ctx context.Context, cc *controllercmd.ControllerContext) error
 		cc.EventRecorder,
 	)
 
-	staleConditions := staleconditions.NewRemoveStaleConditionsController(
+	ctx, staleConditions := staleconditions.NewRemoveStaleConditionsController(
+		ctx,
 		[]string{
 			// the static pod operator used to directly set these. this removes those conditions since the static pod operator was updated.
 			// these can be removed in 4.5

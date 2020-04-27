@@ -1,6 +1,7 @@
 package configobservercontroller
 
 import (
+	"context"
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
 	"k8s.io/client-go/tools/cache"
 
@@ -12,6 +13,8 @@ import (
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
+
+	"github.com/openshift/library-go/pkg/operator/trace"
 )
 
 type ConfigObserver struct {
@@ -19,12 +22,15 @@ type ConfigObserver struct {
 }
 
 func NewConfigObserver(
+	ctx context.Context,
 	operatorClient v1helpers.OperatorClient,
 	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
 	configInformer configinformers.SharedInformerFactory,
 	resourceSyncer resourcesynccontroller.ResourceSyncer,
 	eventRecorder events.Recorder,
-) *ConfigObserver {
+) (context.Context, *ConfigObserver) {
+	ctx, span := trace.TraceProvider().Tracer("observe-config-controller").Start(ctx, "NewConfigObserver")
+	defer span.End()
 	interestingNamespaces := []string{
 		operatorclient.GlobalUserSpecifiedConfigNamespace,
 		operatorclient.GlobalMachineSpecifiedConfigNamespace,
@@ -48,6 +54,7 @@ func NewConfigObserver(
 
 	c := &ConfigObserver{
 		Controller: configobserver.NewConfigObserver(
+			ctx,
 			operatorClient,
 			eventRecorder,
 			configobservation.Listers{
@@ -64,5 +71,5 @@ func NewConfigObserver(
 		),
 	}
 
-	return c
+	return ctx, c
 }

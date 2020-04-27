@@ -44,7 +44,7 @@ func NewResourceSyncController(
 		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.TargetNamespace, Name: "kube-scheduler-client-cert-key"},
 		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.GlobalMachineSpecifiedConfigNamespace, Name: "kube-scheduler-client-cert-key"},
 	); err != nil {
-		return nil, err
+		return ctx, nil, err
 	}
 	return ctx, resourceSyncController, nil
 }

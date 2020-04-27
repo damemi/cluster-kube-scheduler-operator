@@ -28,18 +28,20 @@ import (
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
 	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
+
+	"github.com/openshift/library-go/pkg/operator/trace"
 )
 
 const TargetPolicyConfigMapName = "policy-configmap"
 
 // syncKubeScheduler_v311_00_to_latest takes care of synchronizing (not upgrading) the thing we're managing.
 // most of the time the sync method will be good for a large span of minor versions
-func createTargetConfigReconciler_v311_00_to_latest(ctx context.Context, c TargetConfigReconciler, recorder events.Recorder, operatorSpec *operatorv1.StaticPodOperatorSpec) (bool, error) {
+func createTargetConfigReconciler_v311_00_to_latest(ctx context.Context, c TargetConfigReconciler, recorder events.Recorder, operatorSpec *operatorv1.StaticPodOperatorSpec) (context.Context, bool, error) {
 	errors := []error{}
-	ctx, span := global.TraceProvider().Tracer("target-config-reconciler").Start(ctx, "creatingTargetConfigReconciler")
+	ctx, span := trace.TraceProvider().Tracer("target-config-reconciler").Start(ctx, "creatingTargetConfigReconciler")
 	defer span.End()
 
-	_, _, err := manageKubeSchedulerConfigMap_v311_00_to_latest(ctx, c.configMapLister, c.kubeClient.CoreV1(), recorder, operatorSpec)
+	ctx, _, _, err := manageKubeSchedulerConfigMap_v311_00_to_latest(ctx, c.configMapLister, c.kubeClient.CoreV1(), recorder, operatorSpec)
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "configmap", err))
 	}
@@ -66,7 +68,7 @@ func createTargetConfigReconciler_v311_00_to_latest(ctx context.Context, c Targe
 		if _, _, err := v1helpers.UpdateStaticPodStatus(c.operatorClient, v1helpers.UpdateStaticPodConditionFn(condition)); err != nil {
 			return true, err
 		}
-		return true, nil
+		return ctx, true, nil
 	}
 
 	span.AddEvent(ctx, "updated controller condition", core.KeyValue{Key: "TargetConfigControllerDegraded", Value: core.String(string(operatorv1.ConditionFalse))})
@@ -78,11 +80,11 @@ func createTargetConfigReconciler_v311_00_to_latest(ctx context.Context, c Targe
 		return true, err
 	}
 
-	return false, nil
+	return ctx, false, nil
 }
 
-func manageKubeSchedulerConfigMap_v311_00_to_latest(ctx context.Context, lister corev1listers.ConfigMapLister, client corev1client.ConfigMapsGetter, recorder events.Recorder, operatorSpec *operatorv1.StaticPodOperatorSpec) (*corev1.ConfigMap, bool, error) {
-	_, span := global.TraceProvider().Tracer("target-config-reconciler").Start(ctx, "managing kubeschedulerconfigmap")
+func manageKubeSchedulerConfigMap_v311_00_to_latest(ctx context.Context, lister corev1listers.ConfigMapLister, client corev1client.ConfigMapsGetter, recorder events.Recorder, operatorSpec *operatorv1.StaticPodOperatorSpec) (context.Context, *corev1.ConfigMap, bool, error) {
+	ctx, span := trace.TraceProvider().Tracer("target-config-reconciler").Start(ctx, "managing kubeschedulerconfigmap")
 	defer span.End()
 	configMap := resourceread.ReadConfigMapV1OrDie(v410_00_assets.MustAsset("v4.1.0/kube-scheduler/cm.yaml"))
 	defaultConfig := v410_00_assets.MustAsset("v4.1.0/config/defaultconfig-postbootstrap.yaml")
@@ -90,7 +92,7 @@ func manageKubeSchedulerConfigMap_v311_00_to_latest(ctx context.Context, lister 
 	if err != nil {
 		return nil, false, err
 	}
-	return resourceapply.ApplyConfigMap(client, recorder, requiredConfigMap)
+	return ctx, resourceapply.ApplyConfigMap(client, recorder, requiredConfigMap)
 }
 
 func managePod_v311_00_to_latest(ctx context.Context, configMapsGetter corev1client.ConfigMapsGetter, secretsGetter corev1client.SecretsGetter, recorder events.Recorder, operatorSpec *operatorv1.StaticPodOperatorSpec, imagePullSpec, operatorImagePullSpec string, featureGateLister configlistersv1.FeatureGateLister) (*corev1.ConfigMap, bool, error) {
