@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"go.opentelemetry.io/otel/api/core"
-	"go.opentelemetry.io/otel/api/global"
 
 	"github.com/openshift/cluster-kube-scheduler-operator/pkg/operator/operatorclient"
 	"github.com/openshift/cluster-kube-scheduler-operator/pkg/operator/v410_00_assets"
@@ -66,7 +65,7 @@ func createTargetConfigReconciler_v311_00_to_latest(ctx context.Context, c Targe
 			Message: v1helpers.NewMultiLineAggregate(errors).Error(),
 		}
 		if _, _, err := v1helpers.UpdateStaticPodStatus(c.operatorClient, v1helpers.UpdateStaticPodConditionFn(condition)); err != nil {
-			return true, err
+			return ctx, true, err
 		}
 		return ctx, true, nil
 	}
@@ -77,7 +76,7 @@ func createTargetConfigReconciler_v311_00_to_latest(ctx context.Context, c Targe
 		Status: operatorv1.ConditionFalse,
 	}
 	if _, _, err := v1helpers.UpdateStaticPodStatus(c.operatorClient, v1helpers.UpdateStaticPodConditionFn(condition)); err != nil {
-		return true, err
+		return ctx, true, err
 	}
 
 	return ctx, false, nil
@@ -90,9 +89,10 @@ func manageKubeSchedulerConfigMap_v311_00_to_latest(ctx context.Context, lister 
 	defaultConfig := v410_00_assets.MustAsset("v4.1.0/config/defaultconfig-postbootstrap.yaml")
 	requiredConfigMap, _, err := resourcemerge.MergeConfigMap(configMap, "config.yaml", nil, defaultConfig, operatorSpec.ObservedConfig.Raw, operatorSpec.UnsupportedConfigOverrides.Raw)
 	if err != nil {
-		return nil, false, err
+		return ctx, nil, false, err
 	}
-	return ctx, resourceapply.ApplyConfigMap(client, recorder, requiredConfigMap)
+	configMap, updated, err := resourceapply.ApplyConfigMap(client, recorder, requiredConfigMap)
+	return ctx, configMap, updated, err
 }
 
 func managePod_v311_00_to_latest(ctx context.Context, configMapsGetter corev1client.ConfigMapsGetter, secretsGetter corev1client.SecretsGetter, recorder events.Recorder, operatorSpec *operatorv1.StaticPodOperatorSpec, imagePullSpec, operatorImagePullSpec string, featureGateLister configlistersv1.FeatureGateLister) (*corev1.ConfigMap, bool, error) {

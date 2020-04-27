@@ -52,23 +52,24 @@ func NewConfigObserver(
 		configMapPreRunCacheSynced = append(configMapPreRunCacheSynced, kubeInformersForNamespaces.InformersFor(ns).Core().V1().ConfigMaps().Informer().HasSynced)
 	}
 
+	ctx, configObserver := configobserver.NewConfigObserver(
+		ctx,
+		operatorClient,
+		eventRecorder,
+		configobservation.Listers{
+			SchedulerLister: configInformer.Config().V1().Schedulers().Lister(),
+			ConfigmapLister: kubeInformersForNamespaces.ConfigMapLister(),
+			ResourceSync:    resourceSyncer,
+			PreRunCachesSynced: append(configMapPreRunCacheSynced,
+				operatorClient.Informer().HasSynced,
+				configInformer.Config().V1().Schedulers().Informer().HasSynced,
+			),
+		},
+		informers,
+		scheduler.ObserveSchedulerConfig,
+	)
 	c := &ConfigObserver{
-		Controller: configobserver.NewConfigObserver(
-			ctx,
-			operatorClient,
-			eventRecorder,
-			configobservation.Listers{
-				SchedulerLister: configInformer.Config().V1().Schedulers().Lister(),
-				ConfigmapLister: kubeInformersForNamespaces.ConfigMapLister(),
-				ResourceSync:    resourceSyncer,
-				PreRunCachesSynced: append(configMapPreRunCacheSynced,
-					operatorClient.Informer().HasSynced,
-					configInformer.Config().V1().Schedulers().Informer().HasSynced,
-				),
-			},
-			informers,
-			scheduler.ObserveSchedulerConfig,
-		),
+		Controller: configObserver,
 	}
 
 	return ctx, c

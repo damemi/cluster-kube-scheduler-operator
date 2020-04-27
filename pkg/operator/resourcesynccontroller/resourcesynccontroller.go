@@ -37,7 +37,7 @@ func NewResourceSyncController(
 		if err := resourceSyncController.SyncConfigMap(
 			resourcesynccontroller.ResourceLocation{Namespace: operatorclient.TargetNamespace, Name: scheduler.Spec.Policy.Name},
 			resourcesynccontroller.ResourceLocation{Namespace: operatorclient.GlobalUserSpecifiedConfigNamespace, Name: "policy-configmap"}); err != nil {
-			return nil, err
+			return ctx, nil, err
 		}
 	}
 	if err := resourceSyncController.SyncSecret(
