@@ -19,9 +19,9 @@ import (
 
 	tracepb "github.com/open-telemetry/opentelemetry-proto/gen/go/trace/v1"
 
+	"go.opentelemetry.io/otel/api/label"
 	apitrace "go.opentelemetry.io/otel/api/trace"
 	export "go.opentelemetry.io/otel/sdk/export/trace"
-	"go.opentelemetry.io/otel/sdk/resource"
 )
 
 const (
@@ -33,11 +33,14 @@ func SpanData(sdl []*export.SpanData) []*tracepb.ResourceSpans {
 	if len(sdl) == 0 {
 		return nil
 	}
-	rsm := make(map[*resource.Resource]*tracepb.ResourceSpans)
+	// Group by the distinct representation of the Resource.
+	rsm := make(map[label.Distinct]*tracepb.ResourceSpans)
 
 	for _, sd := range sdl {
 		if sd != nil {
-			rs, ok := rsm[sd.Resource]
+			key := sd.Resource.Equivalent()
+
+			rs, ok := rsm[key]
 			if !ok {
 				rs = &tracepb.ResourceSpans{
 					Resource: Resource(sd.Resource),
@@ -47,7 +50,7 @@ func SpanData(sdl []*export.SpanData) []*tracepb.ResourceSpans {
 						},
 					},
 				}
-				rsm[sd.Resource] = rs
+				rsm[key] = rs
 			}
 			rs.InstrumentationLibrarySpans[0].Spans =
 				append(rs.InstrumentationLibrarySpans[0].Spans, span(sd))
@@ -65,10 +68,10 @@ func span(sd *export.SpanData) *tracepb.Span {
 	if sd == nil {
 		return nil
 	}
-	return &tracepb.Span{
+
+	s := &tracepb.Span{
 		TraceId:           sd.SpanContext.TraceID[:],
 		SpanId:            sd.SpanContext.SpanID[:],
-		ParentSpanId:      sd.ParentSpanID[:],
 		Status:            status(sd.StatusCode, sd.StatusMessage),
 		StartTimeUnixNano: uint64(sd.StartTime.UnixNano()),
 		EndTimeUnixNano:   uint64(sd.EndTime.UnixNano()),
@@ -82,6 +85,12 @@ func span(sd *export.SpanData) *tracepb.Span {
 		DroppedEventsCount:     uint32(sd.DroppedMessageEventCount),
 		DroppedLinksCount:      uint32(sd.DroppedLinkCount),
 	}
+
+	if sd.ParentSpanID.IsValid() {
+		s.ParentSpanId = sd.ParentSpanID[:]
+	}
+
+	return s
 }
 
 // status transform a span code and message into an OTLP span status.
