@@ -26,4 +26,4 @@ require (
 
 replace github.com/jteeuwen/go-bindata => github.com/jteeuwen/go-bindata v3.0.8-0.20151023091102-a0ff2567cfb7+incompatible
 
-replace github.com/openshift/library-go => github.com/damemi/library-go v0.0.0-20200427161242-747c61994cb9
+replace github.com/openshift/library-go => github.com/damemi/library-go v0.0.0-20200428000442-07fd24364740

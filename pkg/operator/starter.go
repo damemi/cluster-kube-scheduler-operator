@@ -34,13 +34,8 @@ const (
 )
 
 func RunOperator(ctx context.Context, cc *controllercmd.ControllerContext) error {
-	exp, tp, err := trace.NewOTLPExporterAndProvider(os.Getenv("OTLP_ENDPOINT"))
-	if err != nil {
-		return err
-	}
-	defer func() {
-		_ = exp.Stop()
-	}()
+	tp, flush, err := trace.NewJaegerProvider(os.Getenv("JAEGER_ENDPOINT"), "openshift-kube-scheduler-operator")
+	defer flush()
 	ctx, span := tp.Tracer("starter").Start(ctx, "RunOperator")
 	defer span.End()
 
