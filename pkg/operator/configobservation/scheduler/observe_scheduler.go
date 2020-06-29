@@ -12,9 +12,7 @@ import (
 )
 
 // observeSchedulerConfig syncs the scheduler policy-config from the openshift-config namespace to the kube-scheduler, if set
-// TODO(@damemi): This does not currently do much besides sync and delete the policy configmap if necessary,
-//  but when we completely switch over to the ComponentConfig API, we will need to re-introduce logic here which
-//  merges policy config information into the main scheduler config. See: https://github.com/openshift/cluster-kube-scheduler-operator/pull/255
+// TODO: this will not be necessary when Policy api is removed
 func ObserveSchedulerConfig(genericListers configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}) (map[string]interface{}, []error) {
 	listers := genericListers.(configobservation.Listers)
 	errs := []error{}
@@ -39,19 +37,19 @@ func ObserveSchedulerConfig(genericListers configobserver.Listers, recorder even
 		errs = append(errs, err)
 		return prevObservedConfig, errs
 	}
-	configMapName := schedulerConfig.Spec.Policy.Name
 
+	policyConfigMapName := schedulerConfig.Spec.Policy.Name
 	switch {
-	case len(configMapName) == 0:
+	case len(policyConfigMapName) == 0:
 		sourceTargetLocation = resourcesynccontroller.ResourceLocation{}
-	case len(configMapName) > 0:
+	case len(policyConfigMapName) > 0:
 		sourceTargetLocation = resourcesynccontroller.ResourceLocation{
 			Namespace: operatorclient.GlobalUserSpecifiedConfigNamespace,
-			Name:      configMapName,
+			Name:      policyConfigMapName,
 		}
 	}
 
-	// Sync the configmap from openshift-config namespace to openshift-kube-scheduler namespace. If the configMapName
+	// Sync the configmap from openshift-config namespace to openshift-kube-scheduler namespace. If the policyConfigMapName
 	// is empty string, it will mirror the deletion as well.
 	err = listers.ResourceSyncer().SyncConfigMap(
 		resourcesynccontroller.ResourceLocation{

@@ -228,7 +228,7 @@ func (c *TargetConfigController) namespaceEventHandler() cache.ResourceEventHand
 func createTargetConfigController_v311_00_to_latest(c TargetConfigController, recorder events.Recorder, operatorSpec *operatorv1.StaticPodOperatorSpec) (bool, error) {
 	errors := []error{}
 
-	_, _, err := manageKubeSchedulerConfigMap_v311_00_to_latest(c.configMapLister, c.kubeClient.CoreV1(), recorder, operatorSpec)
+	_, _, err := manageKubeSchedulerConfigMap_v311_00_to_latest(c.configMapLister, c.kubeClient.CoreV1(), recorder, operatorSpec, c.configInformer)
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "configmap", err))
 	}
@@ -269,10 +269,30 @@ func createTargetConfigController_v311_00_to_latest(c TargetConfigController, re
 	return false, nil
 }
 
-func manageKubeSchedulerConfigMap_v311_00_to_latest(lister corev1listers.ConfigMapLister, client corev1client.ConfigMapsGetter, recorder events.Recorder, operatorSpec *operatorv1.StaticPodOperatorSpec) (*corev1.ConfigMap, bool, error) {
+func manageKubeSchedulerConfigMap_v311_00_to_latest(lister corev1listers.ConfigMapLister, client corev1client.ConfigMapsGetter, recorder events.Recorder, operatorSpec *operatorv1.StaticPodOperatorSpec, configInformer configinformers.SharedInformerFactory) (*corev1.ConfigMap, bool, error) {
 	configMap := resourceread.ReadConfigMapV1OrDie(v410_00_assets.MustAsset("v4.1.0/kube-scheduler/cm.yaml"))
 	defaultConfig := v410_00_assets.MustAsset("v4.1.0/config/defaultconfig-postbootstrap.yaml")
-	requiredConfigMap, _, err := resourcemerge.MergeConfigMap(configMap, "config.yaml", nil, defaultConfig, operatorSpec.ObservedConfig.Raw, operatorSpec.UnsupportedConfigOverrides.Raw)
+	var requiredConfigMap *corev1.ConfigMap
+
+	configBytes := defaultConfig
+	config, err := configInformer.Config().V1().Schedulers().Lister().Get("cluster")
+	if err != nil {
+		return nil, false, err
+	}
+	// if a component config has been set, merge that with the default config
+	cc := config.Spec.Config.Name
+	if len(cc) > 0 {
+		if len(config.Spec.Policy.Name) > 0 {
+			klog.Warning("setting both scheduler Policy and Config may not work. Consider switching Policy to Plugins")
+		}
+		betaConfig, err := lister.ConfigMaps(operatorclient.GlobalUserSpecifiedConfigNamespace).Get(cc)
+		if err != nil {
+			return nil, false, err
+		}
+		configBytes = []byte(betaConfig.Data["config.yaml"])
+	}
+	requiredConfigMap, _, err = resourcemerge.MergeConfigMap(configMap, "config.yaml", nil, configBytes, operatorSpec.ObservedConfig.Raw, operatorSpec.UnsupportedConfigOverrides.Raw)
+
 	if err != nil {
 		return nil, false, err
 	}
