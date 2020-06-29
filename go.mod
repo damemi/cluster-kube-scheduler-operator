@@ -23,3 +23,5 @@ require (
 )
 
 replace github.com/jteeuwen/go-bindata => github.com/jteeuwen/go-bindata v3.0.8-0.20151023091102-a0ff2567cfb7+incompatible
+
+replace github.com/openshift/api => github.com/damemi/api v0.0.0-20200629190638-f973ae2834fe
