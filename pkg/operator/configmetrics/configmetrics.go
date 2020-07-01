@@ -24,6 +24,10 @@ func Register(configInformer configinformers.SharedInformerFactory) {
 			Name: "cluster_default_node_selector",
 			Help: "Reports whether the cluster scheduler is configured with a default node selector.",
 		}),
+		profiles: prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: "cluster_scheduler_profiles",
+			Help: "Reports whether the cluster scheduler is configured with a KubeSchedulerProfile config.",
+		}),
 	})
 }
 
@@ -33,6 +37,7 @@ type configMetrics struct {
 	config       prometheus.Gauge
 	policy       prometheus.Gauge
 	nodeSelector prometheus.Gauge
+	profiles     prometheus.Gauge
 }
 
 func (m *configMetrics) ClearState() {}
@@ -52,6 +57,7 @@ func (m *configMetrics) Collect(ch chan<- prometheus.Metric) {
 		ch <- booleanGaugeValue(m.config, config.Spec.MastersSchedulable)
 		ch <- booleanGaugeValue(m.policy, len(config.Spec.Policy.Name) > 0)
 		ch <- booleanGaugeValue(m.nodeSelector, len(config.Spec.DefaultNodeSelector) > 0)
+		ch <- booleanGaugeValue(m.profiles, len(config.Spec.Config.Name) > 0)
 	}
 }
 
