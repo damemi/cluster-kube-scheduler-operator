@@ -304,7 +304,7 @@ func TestMetricsAccessible(t *testing.T) {
 	}
 	var response model.Value
 	err = wait.PollImmediate(time.Second*1, time.Second*30, func() (bool, error) {
-		response, _, err = prometheusClient.Query(ctx, `scheduler_scheduling_duration_seconds_sum`, time.Now())
+		response, _, err = prometheusClient.Query(ctx, `scheduler_scheduling_algorithm_duration_seconds_sum`, time.Now())
 		if err != nil {
 			return false, fmt.Errorf("error querying prometheus: %v", err)
 		}
